@@ -1,0 +1,24 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": ["../../.."],
+  "providers": {
+    "name-test": {
+      "name": "Name Test Provider",
+      "env": ["OPENCODE_NAME_TEST_API_KEY"],
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "http://127.0.0.1:1/v1",
+        "customModelKey": "{name} ({provider}/{id}){?family:' [$0]'}{?limit.context:' $0 context'}{?limit.output:' / $0 output'}{?cost.0.input:' $0 input'}{?capabilities.tools:' [tools]'}{?missing:' SHOULD NOT APPEAR'}"
+      },
+      "models": {
+        "predefined-model": {
+          "name": "Predefined Model",
+          "family": "test-family",
+          "limit": { "context": 128000, "output": 1048576 },
+          "cost": [{ "input": 2.456, "output": 10 }],
+          "capabilities": { "tools": true, "input": ["text"], "output": ["text"] }
+        }
+      }
+    }
+  }
+}
