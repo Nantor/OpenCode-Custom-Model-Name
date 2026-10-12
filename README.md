@@ -4,7 +4,9 @@ A TypeScript plugin for **OpenCode V2**, built into one self-contained JavaScrip
 
 ## Build and install
 
-Requires Node.js 22 or later and npm. From this project directory:
+Requires Node.js 24 or later and npm. Node.js 24 is the current latest LTS;
+`.nvmrc` selects the latest available 24.x release for local development and CI.
+If you use nvm, run `nvm install` and `nvm use` first. From this project directory:
 
 ```sh
 npm ci
@@ -24,7 +26,7 @@ The path above assumes `opencode.json(c)` is in this plugin project's root. In a
 
 Alternatively, copy just that JavaScript file into a project's `.opencode/plugins/` directory for automatic discovery. Use only one loading method to avoid registering the plugin twice.
 
-Run `npm run check` for type checking, tests, and a fresh build. The plugin is type-checked against `@opencode/plugin` 2.0.22.
+Run `npm run check` for type checking, tests, and a fresh build. The plugin is type-checked against `@opencode/plugin` 2.0.27.
 
 ### Real OpenCode integration test
 
@@ -110,6 +112,15 @@ The example might produce `Gpt 4o (gpt-4o) - 128K context [tools]`. Missing fiel
 - Malformed expressions are left literal. Conditional bodies are not recursively parsed; use `$0` references rather than nested placeholders. Inserted metadata is never evaluated as a template or JavaScript.
 
 Names are transformed from the current model metadata on each registry rebuild. Provider refreshes automatically reapply the transform; no polling, file editing, or cached model names are needed. The plugin re-registers its transform once after the first model update to run after OpenCode 2.0.22's late-registered configuration transforms. `{name}` is the name before this plugin's transform, including changes from earlier transforms.
+
+## Releases
+
+Pushes to `master` automatically release the version in `package.json` when its
+`v<version>` Git tag does not already exist. The workflow runs `npm run check`
+before creating the tag and GitHub release, with the built
+`opencode-custom-model-name.js` attached. Existing tags or an unset version skip
+the release. To publish a new release, update the package version (for example,
+with `npm version patch --no-git-tag-version`) and push the change to `master`.
 
 ## License
 
