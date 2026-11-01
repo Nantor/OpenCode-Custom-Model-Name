@@ -5,7 +5,11 @@ import plugin from "../dist/opencode-custom-model-name.js"
 
 test("single-file build loads and registers a working V2 transform", async () => {
   assert.deepEqual(await readdir(new URL("../dist/", import.meta.url)), ["opencode-custom-model-name.js"])
-  const model = { providerID: "demo", id: "effective", name: "Demo" }
+  const model = {
+    providerID: "demo", id: "effective", name: "Demo",
+    limit: { context: 128000 }, cost: [{ input: 2.456 }],
+    capabilities: { input: ["text", "image"] },
+  }
   await plugin.setup({
     event: { subscribe: async function* () {} },
     model: {
@@ -13,7 +17,7 @@ test("single-file build loads and registers a working V2 transform", async () =>
         callback({
           provider: {
             list: () => [{ provider: { id: "demo", settings: {
-              customModelKey: "{name} ({provider}/{id})",
+              customModelKey: "{{ name }} ({{ provider }}/{{ id }}){% if limit.context %} {{ limit.context | compact }}{% endif %} {{ cost[0].input | price }} {{ capabilities.input | json }}",
             } } }],
           },
           list: () => [model],
@@ -27,5 +31,5 @@ test("single-file build loads and registers a working V2 transform", async () =>
       },
     },
   })
-  assert.equal(model.name, "Demo (demo/effective)")
+  assert.equal(model.name, 'Demo (demo/effective) 128K 2.46 ["text","image"]')
 })

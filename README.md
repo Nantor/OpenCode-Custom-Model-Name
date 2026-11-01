@@ -1,6 +1,6 @@
 # OpenCode Custom Model Name
 
-A TypeScript plugin for **OpenCode V2**, built into one self-contained JavaScript file with no runtime npm dependencies. It changes display names only; model IDs, routing, and other metadata remain unchanged.
+A TypeScript plugin for **OpenCode V2** with **LiquidJS** templates, built into one self-contained JavaScript file with no runtime npm dependencies to install. It changes display names only; model IDs, routing, and other metadata remain unchanged.
 
 ## Build and install
 
@@ -26,7 +26,7 @@ The path above assumes `opencode.json(c)` is in this plugin project's root. In a
 
 Alternatively, copy just that JavaScript file into a project's `.opencode/plugins/` directory for automatic discovery. Use only one loading method to avoid registering the plugin twice.
 
-Run `npm run check` for type checking, tests, and a fresh build. The plugin is type-checked against `@opencode/plugin` 2.0.27.
+Run `npm run check` for type checking, tests, and a fresh build. The plugin is type-checked against `@opencode/plugin` 2.2.5.
 
 ### Real OpenCode integration test
 
@@ -56,7 +56,7 @@ Set `customModelKey` on a provider's `settings` to customize that provider's dis
     "litellm": {
       "settings": {
         "baseURL": "http://localhost:4000/v1",
-        "customModelKey": "{name} ({provider}/{id})"
+        "customModelKey": "{{ name }} ({{ provider }}/{{ id }})"
       }
     }
   }
@@ -68,50 +68,78 @@ To apply a default to every provider, set `customModelKey` in the plugin options
 ```json
 {
   "plugins": [
-    { "package": "./", "options": { "customModelKey": "{name} ({provider})" } }
+    { "package": "./", "options": { "customModelKey": "{{ name }} ({{ provider }})" } }
   ]
 }
 ```
 
-Supported placeholders:
+### Liquid templates
 
-- `{name}`: original model name
-- `{id}`: effective model ID returned by the provider
-- `{provider}`: OpenCode provider ID
-- Any native V2 `Model.Info` field, using dot notation for nested values. Examples include `{family}`, `{capabilities.tools}`, `{limit.context}`, `{cost.0.input}`, `{capabilities.input}`, and `{settings.reasoningSummary}`.
+Templates use [LiquidJS](https://liquidjs.com/tutorials/intro-to-liquid.html): `{{ expression }}` inserts a value, and `{% tag %}` controls conditional text, loops, and assignments.
 
-V2 pricing is an array: `cost.0` selects the first pricing entry, `cost.1` the second, and so on. For example, `{cost.0.cache.read}` inserts the first entry's cache-read price. `{cost}` inserts the entire array as JSON. Numeric array indices also work in other paths, such as `{capabilities.input.0}`. Legacy fields such as `reasoning`, `modalities`, and `options` are not synthesized; unavailable fields resolve to an empty string.
+- `{{ name }}`: original model name, including changes from earlier transforms
+- `{{ id }}`: effective model ID returned by the provider
+- `{{ provider }}`: OpenCode provider ID (alias for `providerID`)
+- Any native V2 `Model.Info` field, using nested paths such as `family`, `capabilities.tools`, `limit.context`, and `settings.reasoningSummary`.
+- Array indexing uses brackets: `{{ cost[0].input }}`, `{{ cost[0].cache.read }}`, or `{{ capabilities.input[0] }}`.
 
-Arrays and objects are inserted as JSON. Placeholders for fields that are not available on a model resolve to an empty string.
-Numeric `{limit.*}` placeholders use compact three-significant-digit notation such as `128K` or `1.05M`. Numeric `{cost.*}` placeholders are rounded to two decimal places, without trailing zeros (for example, `2.46` or `10`). The same formatting applies to conditional references. Numbers inside JSON arrays and objects are not reformatted.
+Missing fields and `null` render as empty strings. Legacy fields such as `reasoning`, `modalities`, and `options` are not synthesized. Output is plain text, without HTML escaping. Inserted metadata is never evaluated as a template or JavaScript.
 
-### Conditional Expressions
+#### Formatting filters
 
-Use a conditional expression to include text only when model metadata is available:
+Metadata stays in its native form for comparisons and loops. Formatting is explicit:
 
-```
-{?path:'text using $0'}
-```
+| Filter | Example | Output |
+| --- | --- | --- |
+| `compact` | `{{ limit.context \| compact }}` | `128K` |
+| `price` | `{{ cost[0].input \| price }}` | `2.46` |
+| `json` | `{{ capabilities.input \| json }}` | `["text","image"]` |
+| `join` | `{{ capabilities.input \| join: '/' }}` | `text/image` |
+| `default` | `{{ family \| default: 'unknown' }}` | `unknown` when missing or falsy |
 
-The condition is one or more field paths, and the quoted body can reference their values by zero-based position (`$0`, `$1`, and so on). A conditional resolves to an empty string when its condition is not met.
+`compact` uses three significant digits (`128K`, `1.05M`). `price` rounds to two decimal places without trailing zeros (`2.46`, `10`); zero renders as `0`. Both return empty strings for missing or null values. Use `json` explicitly for JSON serialization of arrays and objects; their unfiltered output follows Liquid's native behavior. Other built-in LiquidJS filters are available as well.
+
+#### Conditions
 
 ```json
 {
-  "customModelKey": "{name}{?family:' ($0)'}{?limit.context:' - $0 context'}{?capabilities.tools:' [tools]'}"
+  "customModelKey": "{{ name }}{% if family %} ({{ family }}){% endif %}{% if limit.context %} - {{ limit.context | compact }} context{% endif %}{% if capabilities.tools %} [tools]{% endif %}"
 }
 ```
 
-The example might produce `Gpt 4o (gpt-4o) - 128K context [tools]`. Missing fields, `null`, `false`, `0`, and empty strings suppress their conditional text. Arrays and objects, including empty ones, are truthy.
+This might produce `Gpt 4o (gpt-4o) - 128K context [tools]`. Conditions use **JavaScript truthiness**: missing fields, `null`, `false`, `0`, and empty strings are falsy; arrays and objects, including empty ones, are truthy. This differs from default Liquid truthiness.
 
-- Use `&` when every path must be present and truthy: `{?name&family:'$0 ($1)'}`.
-- Use `|` when any path may be present and truthy: `{?family|name:'$0$1'}`.
-- `$0`, `$1`, and later references retain the position of each listed path. An unavailable value inserts an empty string.
-- Escape a literal single quote in the body as `\'`: `{?name:'it\'s $0'}`.
-- Do not mix `&` and `|` in one conditional expression.
-- Escape a literal backslash in a conditional body as `\\`. In JSON, escape backslashes again: `"{?name:'it\\'s $0'}"`.
-- Malformed expressions are left literal. Conditional bodies are not recursively parsed; use `$0` references rather than nested placeholders. Inserted metadata is never evaluated as a template or JavaScript.
+Use `and`, `or`, comparisons, nested conditions, and `elsif`/`else` as needed:
 
-Names are transformed from the current model metadata on each registry rebuild. Provider refreshes automatically reapply the transform; no polling, file editing, or cached model names are needed. The plugin re-registers its transform once after the first model update to run after OpenCode 2.0.22's late-registered configuration transforms. `{name}` is the name before this plugin's transform, including changes from earlier transforms.
+```liquid
+{% if capabilities.tools and limit.context >= 128000 %} [agent-ready]{% endif %}
+{% if cost[0].input == 0 %} [free input]{% endif %}
+```
+
+Liquid evaluates mixed `and`/`or` expressions from right to left; use nested conditions for unambiguous grouping. Whitespace is preserved unless you use Liquid's whitespace-control delimiters (`{{-`, `-}}`, `{%-`, `-%}`).
+
+Templates are parsed once per provider per registry rebuild, then rendered synchronously against current model metadata. Provider refreshes automatically reapply the transform; no polling, file editing, or cached model names are needed. The plugin re-registers its transform once after the first model update to run after OpenCode 2.0.22's late-registered configuration transforms.
+
+#### Errors and limits
+
+Malformed templates, unknown filters, and unavailable tags produce a warning and leave that provider's model names unchanged. Rendering errors leave the affected model's name unchanged and warn at most once per provider per rebuild.
+
+The `include`, `render`, and `layout` tags are disabled, and template lookup is in-memory only; templates cannot load files. Only own metadata properties are exposed. Parsing is limited to 16,384 characters; each model render has cooperative limits of 50 ms, 10,000 template steps, and 1,000,000 memory-accounting units. These are safeguards, not a sandbox or hard CPU/heap limits. No custom JavaScript extensions or async filters are exposed.
+
+#### Example
+
+```json
+{
+  "customModelKey": "{{ name }}{% if cost[0].input or cost[0].output or limit.input or limit.output %} {% endif %}{% if cost[0].input or cost[0].output %}({% if cost[0].input %}{{ cost[0].input | price }}↓{% endif %}{% if cost[0].input and cost[0].output %} {% endif %}{% if cost[0].output %}{{ cost[0].output | price }}↑{% endif %}💲){% endif %}{% if limit.input or limit.output %}[{% if limit.input %}{{ limit.input | compact }}↓{% endif %}{% if limit.input and limit.output %} {% endif %}{% if limit.output %}{{ limit.output | compact }}↑{% endif %}📚]{% endif %}"
+}
+```
+
+creates names with the cost and context information needed:
+
+```text
+Gpt 6.1 Sol (2.4↓ 12↑💲)[922K↓ 128K↑📚]
+Deepseek V4 Flash Local [220K↓ 16K↑📚]
+```
 
 ## Releases
 

@@ -11,9 +11,23 @@ export default define({
         const providerKey: unknown = provider.settings?.customModelKey
         const key = typeof providerKey === "string" ? providerKey : defaultKey
         if (typeof key !== "string") continue
-        const render = compileTemplate(key)
+        let render: ReturnType<typeof compileTemplate>
+        try {
+          render = compileTemplate(key)
+        } catch (error: unknown) {
+          console.warn(`opencode-custom-model-name: invalid template for provider ${provider.id}:`, error)
+          continue
+        }
+        let warned = false
         for (const model of editor.list(provider.id)) {
-          const name = render(model)
+          let name: string
+          try {
+            name = render(model)
+          } catch (error: unknown) {
+            if (!warned) console.warn(`opencode-custom-model-name: rendering failed for provider ${provider.id}:`, error)
+            warned = true
+            continue
+          }
           editor.update(String(model.providerID), String(model.id), (draft) => {
             draft.name = name
           })

@@ -4,6 +4,8 @@ const result = await build({
   entryPoints: ["src/index.ts"],
   outfile: "dist/opencode-custom-model-name.js",
   bundle: true,
+  // The browser engine supports synchronous string rendering without Node imports.
+  alias: { liquidjs: "liquidjs/dist/liquid.browser.mjs" },
   format: "esm",
   platform: "node",
   target: "es2022",

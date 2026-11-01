@@ -1,70 +1,38 @@
-type Metadata = Readonly<Record<string, unknown>>
-type Part = string | { path: string } | { paths: string[]; every: boolean; body: string }
+import { Liquid } from "liquidjs"
 
-const pathPattern = /^[\w-]+(?:\.[\w-]+)*$/
-const tokenPattern = /\{\?([^:{}]*):'((?:\\.|[^'\\])*)'\}|\{([\w-]+(?:\.[\w-]+)*)\}/g
+type Metadata = Readonly<Record<string, unknown>>
+
 const compact = new Intl.NumberFormat("en-US", {
   notation: "compact",
   maximumSignificantDigits: 3,
   useGrouping: false,
 })
 
-function resolve(model: Metadata, path: string): unknown {
-  if (path === "provider") return model.providerID
-  let value: unknown = model
-  for (const key of path.split(".")) {
-    // Never expose inherited properties (including Object.prototype).
-    if (value === null || typeof value !== "object" || !Object.hasOwn(value, key)) return undefined
-    value = (value as Metadata)[key]
-  }
-  return value
-}
+const engine = new Liquid({
+  jsTruthy: true,
+  ownPropertyOnly: true,
+  strictFilters: true,
+  strictVariables: false,
+  // No filesystem-backed templates, even if a loading tag is added later.
+  templates: Object.create(null),
+  parseLimit: 16_384,
+  renderLimit: 50,
+  memoryLimit: 1_000_000,
+})
 
-function format(value: unknown, path: string): string {
+for (const tag of ["include", "render", "layout"]) delete engine.tags[tag]
+
+engine.registerFilter("compact", (value: unknown) => {
   if (value === undefined || value === null) return ""
-  if (typeof value === "number" && Number.isFinite(value)) {
-    if (path.startsWith("limit.")) return compact.format(value)
-    if (path.startsWith("cost.")) return String(Number(value.toFixed(2)))
-  }
-  if (typeof value === "object") return JSON.stringify(value)
-  return String(value)
-}
+  return typeof value === "number" && Number.isFinite(value) ? compact.format(value) : String(value)
+})
+engine.registerFilter("price", (value: unknown) => {
+  if (value === undefined || value === null) return ""
+  return typeof value === "number" && Number.isFinite(value) ? String(Number(value.toFixed(2))) : String(value)
+})
 
-/** Parse once; rendering is non-evaluating and never reparses inserted values. */
+/** Parse once; inserted metadata is never reparsed as a template. */
 export function compileTemplate(template: string): (model: Metadata) => string {
-  const parts: Part[] = []
-  let end = 0
-  for (const match of template.matchAll(tokenPattern)) {
-    parts.push(template.slice(end, match.index))
-    if (match[3] !== undefined) {
-      parts.push({ path: match[3] })
-    } else {
-      const condition = match[1]!
-      const paths = condition.split(/[&|]/).map((path) => path.trim())
-      if ((condition.includes("&") && condition.includes("|")) || !paths.every((path) => pathPattern.test(path))) {
-        parts.push(match[0])
-      } else {
-        parts.push({
-          paths,
-          every: !condition.includes("|"),
-          body: match[2]!.replace(/\\(['\\])/g, "$1"),
-        })
-      }
-    }
-    end = match.index + match[0].length
-  }
-  parts.push(template.slice(end))
-
-  return (model) => parts.map((part) => {
-    if (typeof part === "string") return part
-    if ("path" in part) return format(resolve(model, part.path), part.path)
-    const values = part.paths.map((path) => resolve(model, path))
-    const passes = part.every ? values.every(Boolean) : values.some(Boolean)
-    if (!passes) return ""
-    return part.body.replace(/\$(\d+)/g, (_, index: string) => {
-      const position = Number(index)
-      const path = part.paths[position]
-      return path === undefined ? "" : format(values[position], path)
-    })
-  }).join("")
+  const parsed = engine.parse(template)
+  return (model) => engine.renderSync(parsed, { ...model, provider: model.providerID }, { templateLimit: 10_000 }) as string
 }
