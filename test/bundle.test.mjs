@@ -17,7 +17,7 @@ test("single-file build loads and registers a working V2 transform", async () =>
         callback({
           provider: {
             list: () => [{ provider: { id: "demo", settings: {
-              customModelKey: "{{ name }} ({{ provider }}/{{ id }}){% if limit.context %} {{ limit.context | compact }}{% endif %} {{ cost[0].input | price }} {{ capabilities.input | json }}",
+              customModelName: "{{ name }} ({{ provider }}/{{ id }}){% if limit.context %} {{ limit.context | compact }}{% endif %} {{ cost[0].input | price }} {{ capabilities.input | json }}",
             } } }],
           },
           list: () => [model],

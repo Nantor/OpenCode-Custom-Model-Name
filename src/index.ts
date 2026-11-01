@@ -4,16 +4,16 @@ import { compileTemplate } from "./template.js"
 export default define({
   id: "opencode-custom-model-name",
   async setup(ctx) {
-    const defaultKey: unknown = ctx.options?.customModelKey
+    const defaultTemplate: unknown = ctx.options?.customModelName
     const transform: Parameters<typeof ctx.model.transform>[0] = (editor) => {
       // Read current provider inputs on each replay, rather than caching startup state.
       for (const { provider } of editor.provider.list()) {
-        const providerKey: unknown = provider.settings?.customModelKey
-        const key = typeof providerKey === "string" ? providerKey : defaultKey
-        if (typeof key !== "string") continue
+        const providerTemplate: unknown = provider.settings?.customModelName
+        const template = typeof providerTemplate === "string" ? providerTemplate : defaultTemplate
+        if (typeof template !== "string") continue
         let render: ReturnType<typeof compileTemplate>
         try {
-          render = compileTemplate(key)
+          render = compileTemplate(template)
         } catch (error: unknown) {
           console.warn(`opencode-custom-model-name: invalid template for provider ${provider.id}:`, error)
           continue

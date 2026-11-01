@@ -8,7 +8,7 @@
       "package": "@opencode/ai/providers/openai-compatible",
       "settings": {
         "baseURL": "http://127.0.0.1:1/v1",
-        "customModelKey": "{{ name }} ({{ provider }}/{{ id }}){% if family %} [{{ family }}]{% endif %}{% if limit.context %} {{ limit.context | compact }} context{% endif %}{% if limit.output %} / {{ limit.output | compact }} output{% endif %}{% if cost[0].input %} {{ cost[0].input | price }} input{% endif %}{% if capabilities.tools %} [tools]{% endif %}{% if missing %} SHOULD NOT APPEAR{% endif %}"
+        "customModelName": "{{ name }} ({{ provider }}/{{ id }}){% if family %} [{{ family }}]{% endif %}{% if limit.context %} {{ limit.context | compact }} context{% endif %}{% if limit.output %} / {{ limit.output | compact }} output{% endif %}{% if cost[0].input %} {{ cost[0].input | price }} input{% endif %}{% if capabilities.tools %} [tools]{% endif %}{% if missing %} SHOULD NOT APPEAR{% endif %}"
       },
       "models": {
         "predefined-model": {

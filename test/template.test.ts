@@ -96,7 +96,7 @@ test("reusing a compiled template does not retain earlier values or assignments"
 test("the README pricing/context example produces its documented names", () => {
   const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8")
   const example = readme.split("#### Example")[1]!.match(/```json\n([\s\S]*?)\n```/)![1]!
-  const render = compileTemplate(JSON.parse(example).customModelKey)
+  const render = compileTemplate(JSON.parse(example).customModelName)
   assert.equal(render({ name: "Gpt 6.1 Sol", cost: [{ input: 2.4, output: 12 }], limit: { input: 922_000, output: 128_000 } }),
     "Gpt 6.1 Sol (2.4↓ 12↑💲)[922K↓ 128K↑📚]")
   assert.equal(render({ name: "Deepseek V4 Flash Local", limit: { input: 220_000, output: 16_000 } }),

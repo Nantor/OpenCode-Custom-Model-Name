@@ -46,9 +46,9 @@ The test uses a dummy credential and makes no generation request. It isolates Op
 
 ## Model names
 
-Without a string `customModelKey`, the default name is used. Setting one is all it takes to enable renaming. An empty string produces an empty display name.
+Without a string `customModelName`, the default name is used. Setting one is all it takes to enable renaming. An empty string produces an empty display name.
 
-Set `customModelKey` on a provider's `settings` to customize that provider's display names:
+Set `customModelName` on a provider's `settings` to customize that provider's display names:
 
 ```json
 {
@@ -56,19 +56,19 @@ Set `customModelKey` on a provider's `settings` to customize that provider's dis
     "litellm": {
       "settings": {
         "baseURL": "http://localhost:4000/v1",
-        "customModelKey": "{{ name }} ({{ provider }}/{{ id }})"
+        "customModelName": "{{ name }} ({{ provider }}/{{ id }})"
       }
     }
   }
 }
 ```
 
-To apply a default to every provider, set `customModelKey` in the plugin options. The key is resolved in this order: the provider's own `customModelKey`, then the plugin option, then the model's original name (no change).
+To apply a default to every provider, set `customModelName` in the plugin options. The name template is resolved in this order: the provider's own `customModelName`, then the plugin option, then the model's original name (no change).
 
 ```json
 {
   "plugins": [
-    { "package": "./", "options": { "customModelKey": "{{ name }} ({{ provider }})" } }
+    { "package": "./", "options": { "customModelName": "{{ name }} ({{ provider }})" } }
   ]
 }
 ```
@@ -103,7 +103,7 @@ Metadata stays in its native form for comparisons and loops. Formatting is expli
 
 ```json
 {
-  "customModelKey": "{{ name }}{% if family %} ({{ family }}){% endif %}{% if limit.context %} - {{ limit.context | compact }} context{% endif %}{% if capabilities.tools %} [tools]{% endif %}"
+  "customModelName": "{{ name }}{% if family %} ({{ family }}){% endif %}{% if limit.context %} - {{ limit.context | compact }} context{% endif %}{% if capabilities.tools %} [tools]{% endif %}"
 }
 ```
 
@@ -130,7 +130,7 @@ The `include`, `render`, and `layout` tags are disabled, and template lookup is 
 
 ```json
 {
-  "customModelKey": "{{ name }}{% if cost[0].input or cost[0].output or limit.input or limit.output %} {% endif %}{% if cost[0].input or cost[0].output %}({% if cost[0].input %}{{ cost[0].input | price }}↓{% endif %}{% if cost[0].input and cost[0].output %} {% endif %}{% if cost[0].output %}{{ cost[0].output | price }}↑{% endif %}💲){% endif %}{% if limit.input or limit.output %}[{% if limit.input %}{{ limit.input | compact }}↓{% endif %}{% if limit.input and limit.output %} {% endif %}{% if limit.output %}{{ limit.output | compact }}↑{% endif %}📚]{% endif %}"
+  "customModelName": "{{ name }}{% if cost[0].input or cost[0].output or limit.input or limit.output %} {% endif %}{% if cost[0].input or cost[0].output %}({% if cost[0].input %}{{ cost[0].input | price }}↓{% endif %}{% if cost[0].input and cost[0].output %} {% endif %}{% if cost[0].output %}{{ cost[0].output | price }}↑{% endif %}💲){% endif %}{% if limit.input or limit.output %}[{% if limit.input %}{{ limit.input | compact }}↓{% endif %}{% if limit.input and limit.output %} {% endif %}{% if limit.output %}{{ limit.output | compact }}↑{% endif %}📚]{% endif %}"
 }
 ```
 

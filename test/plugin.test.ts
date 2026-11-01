@@ -46,7 +46,7 @@ function harness(settings: unknown, options?: Record<string, unknown>) {
 }
 
 test("V2 plugin changes only the configured provider's display names", async () => {
-  const h = harness({ customModelKey: "{{ name }} ({{ provider }}/{{ id }}) {{ limit.context | compact }}" })
+  const h = harness({ customModelName: "{{ name }} ({{ provider }}/{{ id }}) {{ limit.context | compact }}" })
   await plugin.setup(h.ctx)
   const models = h.replay()
   assert.equal(plugin.id, "opencode-custom-model-name")
@@ -55,27 +55,27 @@ test("V2 plugin changes only the configured provider's display names", async () 
   assert.deepEqual(models[1], h.source[1])
 })
 
-test("missing or invalid keys preserve names", async () => {
-  for (const settings of [undefined, {}, { customModelKey: 123 }, { customModelKey: null }]) {
+test("missing or invalid name templates preserve names", async () => {
+  for (const settings of [undefined, {}, { customModelName: 123 }, { customModelName: null }]) {
     const h = harness(settings)
     await plugin.setup(h.ctx)
     assert.deepEqual(h.replay(), h.source)
   }
-  const h = harness({}, { customModelKey: 123 })
+  const h = harness({}, { customModelName: 123 })
   await plugin.setup(h.ctx)
   assert.deepEqual(h.replay(), h.source)
 })
 
-test("an empty string key is supported", async () => {
-  const h = harness({ customModelKey: "" })
+test("an empty string name template is supported", async () => {
+  const h = harness({ customModelName: "" })
   await plugin.setup(h.ctx)
   assert.equal(h.replay()[0]!.name, "")
 })
 
 test("invalid templates preserve names and warn instead of breaking rebuilds", async (t) => {
   const warn = t.mock.method(console, "warn", () => {})
-  for (const customModelKey of ["{% if name %}", "{{ name | unknown }}", "{% include 'secret' %}"]) {
-    const h = harness({ customModelKey })
+  for (const customModelName of ["{% if name %}", "{{ name | unknown }}", "{% include 'secret' %}"]) {
+    const h = harness({ customModelName })
     await plugin.setup(h.ctx)
     assert.deepEqual(h.replay(), h.source)
   }
@@ -84,7 +84,7 @@ test("invalid templates preserve names and warn instead of breaking rebuilds", a
 
 test("render errors preserve only the affected model and warn once per provider", async (t) => {
   const warn = t.mock.method(console, "warn", () => {})
-  const h = harness({ customModelKey: "{% if limit.context %}{% for i in (1..1000000000) %}{{ i }}{% endfor %}{% else %}{{ name }}!{% endif %}" })
+  const h = harness({ customModelName: "{% if limit.context %}{% for i in (1..1000000000) %}{{ i }}{% endfor %}{% else %}{{ name }}!{% endif %}" })
   h.source.push({ providerID: "litellm", id: "second", name: "Second", limit: { context: 128_000 } })
   h.source.push({ providerID: "litellm", id: "third", name: "Third" })
   await plugin.setup(h.ctx)
@@ -96,22 +96,22 @@ test("render errors preserve only the affected model and warn once per provider"
 })
 
 test("the plugin option is the default and provider settings override it", async () => {
-  const defaulted = harness({}, { customModelKey: "{{ name }}#" })
+  const defaulted = harness({}, { customModelName: "{{ name }}#" })
   await plugin.setup(defaulted.ctx)
   assert.equal(defaulted.replay()[0]!.name, "Original#")
 
-  const overridden = harness({ customModelKey: "{{ id }}" }, { customModelKey: "{{ name }}#" })
+  const overridden = harness({ customModelName: "{{ id }}" }, { customModelName: "{{ name }}#" })
   await plugin.setup(overridden.ctx)
   assert.equal(overridden.replay()[0]!.name, "effective-id")
 })
 
 test("rebuilds are repeatable and observe refreshed models and settings", async () => {
-  const h = harness({ customModelKey: "{{ name }}!" })
+  const h = harness({ customModelName: "{{ name }}!" })
   await plugin.setup(h.ctx)
   assert.equal(h.replay()[0]!.name, "Original!")
   assert.equal(h.replay()[0]!.name, "Original!")
   h.source[0]!.name = "Refreshed"
-  h.provider.settings = { customModelKey: "{{ name }} {{ id }}" }
+  h.provider.settings = { customModelName: "{{ name }} {{ id }}" }
   assert.equal(h.replay()[0]!.name, "Refreshed effective-id")
   h.provider.settings = {}
   assert.equal(h.replay()[0]!.name, "Refreshed")
